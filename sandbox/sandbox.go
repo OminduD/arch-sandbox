@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	sandboxDir  = "/home/user/.arch-sandbox"
-	tarballURL  = "https://geo.mirror.pkgbuild.com/iso/2025.08.01/archlinux-bootstrap-2025.08.01-x86_64.tar.gz"
+	sandboxDir  = "/home/omindud/.arch-sandbox"
+	tarballURL  = "https://archive.archlinux.org/iso/2025.07.01/archlinux-bootstrap-2025.07.01-x86_64.tar.gz"
 	tarballPath = sandboxDir + "/archlinux-bootstrap.tar.gz"
 )
 
