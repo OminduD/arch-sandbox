@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"archive/tar"
 	"fmt"
 	"io"
 	"log"
@@ -8,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 func CheckDependencies() error {
@@ -62,40 +64,58 @@ func DownloadTarball(url, dest string) error {
 	return nil
 }
 
-// Replace ExtractTarball to handle .tar.zst
 func ExtractTarball(tarballPath, dest string) error {
 	log.Println("Extracting tarball")
-
-	// Define and initialize cmd for tar extraction
-	cmd := exec.Command("tar", "--use-compress-program=zstd", "-xf", tarballPath, "-C", dest)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start tar extraction: %v", err)
+	cmd := exec.Command("zstd", "-d", "--stdout", tarballPath)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
 	}
-
-	if err := cmd.Wait(); err != nil {
+	if err := cmd.Start(); err != nil {
 		return err
 	}
 
-	// Set root ownership and correct permissions
-	if err := os.Chown(dest, 0, 0); err != nil { // 0 is root's UID/GID
-		return fmt.Errorf("failed to chown root dir: %v", err)
-	}
-	if err := filepath.Walk(dest, func(path string, info os.FileInfo, err error) error {
+	tr := tar.NewReader(stdout)
+	for {
+		header, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
 		if err != nil {
+			cmd.Wait()
 			return err
 		}
-		if err := os.Chown(path, 0, 0); err != nil { // Set root ownership
-			return err
+
+		target := filepath.Join(dest, header.Name)
+		switch header.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(target, os.FileMode(header.Mode)); err != nil {
+				cmd.Wait()
+				return err
+			}
+		case tar.TypeReg, tar.TypeSymlink:
+			if header.Typeflag == tar.TypeSymlink {
+				if err := os.Symlink(header.Linkname, target); err != nil {
+					cmd.Wait()
+					return err
+				}
+				continue // Skip chmod/chown for symlinks
+			}
+			f, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY, os.FileMode(header.Mode))
+			if err != nil {
+				cmd.Wait()
+				return err
+			}
+			if _, err := io.Copy(f, tr); err != nil {
+				f.Close()
+				cmd.Wait()
+				return err
+			}
+			f.Close()
 		}
-		if info.Mode().IsRegular() && (path == filepath.Join(dest, "bin/bash") || info.Mode()&0111 != 0) {
-			// Ensure executable files have execute permissions
-			return os.Chmod(path, info.Mode()|0111)
-		}
-		return nil
-	}); err != nil {
-		return fmt.Errorf("failed to set permissions: %v", err)
+	}
+	if err := cmd.Wait(); err != nil {
+		return err
 	}
 
 	// Handle Arch bootstrap tarball structure (root.x86_64)
@@ -106,8 +126,38 @@ func ExtractTarball(tarballPath, dest string) error {
 		}
 		os.RemoveAll(extractedRoot)
 	}
-	log.Println("Tarball extracted")
+
+	// **Fix: Apply chown/chmod AFTER moving root.x86_64**
+	if err := fixPermissions(dest); err != nil {
+		return fmt.Errorf("failed to set permissions: %v", err)
+	}
+
+	log.Println("Tarball extracted and permissions fixed")
 	return nil
+}
+
+// Helper function to set root ownership and executable permissions
+func fixPermissions(root string) error {
+	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		// Skip symlinks (e.g., /etc/mtab)
+		if info.Mode()&os.ModeSymlink != 0 {
+			return nil
+		}
+		// Set root ownership
+		if err := os.Chown(path, 0, 0); err != nil {
+			return fmt.Errorf("chown %s: %v", path, err)
+		}
+		// Ensure executables have +x
+		if info.Mode().IsRegular() && (strings.HasSuffix(path, "/bin/bash") || info.Mode()&0111 != 0) {
+			if err := os.Chmod(path, info.Mode()|0111); err != nil {
+				return fmt.Errorf("chmod %s: %v", path, err)
+			}
+		}
+		return nil
+	})
 }
 func moveContents(src, dst string) error {
 	dir, err := os.Open(src)
