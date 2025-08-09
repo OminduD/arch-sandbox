@@ -3,6 +3,7 @@ package utils
 import (
 	"archive/tar"
 	"compress/gzip"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -22,8 +23,15 @@ func CheckDependencies() error {
 
 func DownloadTarball(url, dest string) error {
 	if _, err := os.Stat(dest); err == nil {
-		log.Println("Tarball already exists")
-		return nil
+		// Verify existing tarball
+		log.Println("Verifying existing tarball")
+		cmd := exec.Command("gunzip", "-t", dest)
+		if err := cmd.Run(); err == nil {
+			log.Println("Tarball already exists and is valid")
+			return nil
+		}
+		log.Println("Existing tarball is invalid, redownloading")
+		os.Remove(dest)
 	}
 	log.Println("Downloading Arch Linux tarball")
 	resp, err := http.Get(url)
@@ -31,7 +39,9 @@ func DownloadTarball(url, dest string) error {
 		return err
 	}
 	defer resp.Body.Close()
-
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("download failed: %s", resp.Status)
+	}
 	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
 		return err
 	}
@@ -40,9 +50,18 @@ func DownloadTarball(url, dest string) error {
 		return err
 	}
 	defer out.Close()
-
 	_, err = io.Copy(out, resp.Body)
-	return err
+	if err != nil {
+		return err
+	}
+	// Verify downloaded tarball
+	log.Println("Verifying downloaded tarball")
+	cmd := exec.Command("gunzip", "-t", dest)
+	if err := cmd.Run(); err != nil {
+		os.Remove(dest)
+		return fmt.Errorf("invalid tarball: %v", err)
+	}
+	return nil
 }
 
 func ExtractTarball(tarballPath, dest string) error {
