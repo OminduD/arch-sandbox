@@ -12,8 +12,8 @@ import (
 
 const (
 	sandboxDir  = "/home/omindud/.arch-sandbox"
-	tarballURL  = "https://archive.archlinux.org/iso/2025.07.01/archlinux-bootstrap-2025.07.01-x86_64.tar.gz"
-	tarballPath = sandboxDir + "/archlinux-bootstrap.tar.gz"
+	tarballURL  = "https://archive.archlinux.org/iso/2025.07.01/archlinux-bootstrap-2025.07.01-x86_64.tar.zst" // changed to .tar.zst
+	tarballPath = sandboxDir + "/archlinux-bootstrap.tar.zst"                                                  // changed to .tar.zst
 )
 
 type Sandbox struct {

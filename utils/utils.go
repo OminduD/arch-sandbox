@@ -2,7 +2,6 @@ package utils
 
 import (
 	"archive/tar"
-	"compress/gzip"
 	"fmt"
 	"io"
 	"log"
@@ -13,7 +12,7 @@ import (
 )
 
 func CheckDependencies() error {
-	for _, cmd := range []string{"systemd-nspawn", "mount", "pacman"} {
+	for _, cmd := range []string{"systemd-nspawn", "mount", "pacman", "zstd"} { // add zstd
 		if _, err := exec.LookPath(cmd); err != nil {
 			return err
 		}
@@ -25,7 +24,7 @@ func DownloadTarball(url, dest string) error {
 	if _, err := os.Stat(dest); err == nil {
 		// Verify existing tarball
 		log.Println("Verifying existing tarball")
-		cmd := exec.Command("gunzip", "-t", dest)
+		cmd := exec.Command("zstd", "-t", dest) // use zstd for .zst
 		if err := cmd.Run(); err == nil {
 			log.Println("Tarball already exists and is valid")
 			return nil
@@ -56,7 +55,7 @@ func DownloadTarball(url, dest string) error {
 	}
 	// Verify downloaded tarball
 	log.Println("Verifying downloaded tarball")
-	cmd := exec.Command("gunzip", "-t", dest)
+	cmd := exec.Command("zstd", "-t", dest) // use zstd for .zst
 	if err := cmd.Run(); err != nil {
 		os.Remove(dest)
 		return fmt.Errorf("invalid tarball: %v", err)
@@ -64,46 +63,51 @@ func DownloadTarball(url, dest string) error {
 	return nil
 }
 
+// Replace ExtractTarball to handle .tar.zst
 func ExtractTarball(tarballPath, dest string) error {
 	log.Println("Extracting tarball")
-	file, err := os.Open(tarballPath)
+	// Use zstd to decompress, then untar
+	cmd := exec.Command("zstd", "-d", "--stdout", tarballPath)
+	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return err
 	}
-	defer file.Close()
-
-	gz, err := gzip.NewReader(file)
-	if err != nil {
+	if err := cmd.Start(); err != nil {
 		return err
 	}
-	defer gz.Close()
-
-	tr := tar.NewReader(gz)
+	tr := tar.NewReader(stdout)
 	for {
 		header, err := tr.Next()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
+			cmd.Wait()
 			return err
 		}
 		target := filepath.Join(dest, header.Name)
 		switch header.Typeflag {
 		case tar.TypeDir:
 			if err := os.MkdirAll(target, os.FileMode(header.Mode)); err != nil {
+				cmd.Wait()
 				return err
 			}
 		case tar.TypeReg:
 			f, err := os.Create(target)
 			if err != nil {
+				cmd.Wait()
 				return err
 			}
 			if _, err := io.Copy(f, tr); err != nil {
 				f.Close()
+				cmd.Wait()
 				return err
 			}
 			f.Close()
 		}
+	}
+	if err := cmd.Wait(); err != nil {
+		return err
 	}
 	// Handle Arch bootstrap tarball structure (root.x86_64)
 	extractedRoot := filepath.Join(dest, "root.x86_64")
