@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"archive/tar"
 	"fmt"
 	"io"
 	"log"
@@ -66,49 +65,39 @@ func DownloadTarball(url, dest string) error {
 // Replace ExtractTarball to handle .tar.zst
 func ExtractTarball(tarballPath, dest string) error {
 	log.Println("Extracting tarball")
-	// Use zstd to decompress, then untar
-	cmd := exec.Command("zstd", "-d", "--stdout", tarballPath)
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return err
-	}
+
+	// Define and initialize cmd for tar extraction
+	cmd := exec.Command("tar", "--use-compress-program=zstd", "-xf", tarballPath, "-C", dest)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
-		return err
+		return fmt.Errorf("failed to start tar extraction: %v", err)
 	}
-	tr := tar.NewReader(stdout)
-	for {
-		header, err := tr.Next()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			cmd.Wait()
-			return err
-		}
-		target := filepath.Join(dest, header.Name)
-		switch header.Typeflag {
-		case tar.TypeDir:
-			if err := os.MkdirAll(target, os.FileMode(header.Mode)); err != nil {
-				cmd.Wait()
-				return err
-			}
-		case tar.TypeReg:
-			f, err := os.Create(target)
-			if err != nil {
-				cmd.Wait()
-				return err
-			}
-			if _, err := io.Copy(f, tr); err != nil {
-				f.Close()
-				cmd.Wait()
-				return err
-			}
-			f.Close()
-		}
-	}
+
 	if err := cmd.Wait(); err != nil {
 		return err
 	}
+
+	// Set root ownership and correct permissions
+	if err := os.Chown(dest, 0, 0); err != nil { // 0 is root's UID/GID
+		return fmt.Errorf("failed to chown root dir: %v", err)
+	}
+	if err := filepath.Walk(dest, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if err := os.Chown(path, 0, 0); err != nil { // Set root ownership
+			return err
+		}
+		if info.Mode().IsRegular() && (path == filepath.Join(dest, "bin/bash") || info.Mode()&0111 != 0) {
+			// Ensure executable files have execute permissions
+			return os.Chmod(path, info.Mode()|0111)
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to set permissions: %v", err)
+	}
+
 	// Handle Arch bootstrap tarball structure (root.x86_64)
 	extractedRoot := filepath.Join(dest, "root.x86_64")
 	if _, err := os.Stat(extractedRoot); err == nil {
@@ -120,7 +109,6 @@ func ExtractTarball(tarballPath, dest string) error {
 	log.Println("Tarball extracted")
 	return nil
 }
-
 func moveContents(src, dst string) error {
 	dir, err := os.Open(src)
 	if err != nil {
