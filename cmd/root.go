@@ -4,13 +4,20 @@ import (
 	"log"
 	"os"
 
+	"path/filepath"
+
 	"github.com/OminduD/arch-sandbox/sandbox"
+	"github.com/OminduD/arch-sandbox/snapshot" // Import the snapshot package
 	"github.com/spf13/cobra"
 )
 
 var rootCmd = &cobra.Command{
 	Use:   "arch-sandbox",
 	Short: "Create isolated Arch Linux sandboxes",
+}
+
+func init() {
+	rootCmd.AddCommand(snapshotCmd)
 }
 
 var newCmd = &cobra.Command{
@@ -31,6 +38,33 @@ var newCmd = &cobra.Command{
 		}
 		if err := sb.Cleanup(); err != nil {
 			log.Fatalf("Cleanup failed: %v", err)
+		}
+	},
+}
+var snapshotCmd = &cobra.Command{
+	Use:   "snapshot <name> <action> [snapshot-id]",
+	Short: "Manage sandbox snapshots",
+	Args:  cobra.MinimumNArgs(2),
+	Run: func(cmd *cobra.Command, args []string) {
+		sandboxDir := "/path/to/sandbox" // Define sandboxDir or replace with the correct path
+		action := args[1]
+		switch action {
+		case "save":
+			if len(args) < 3 {
+				log.Fatalf("Missing snapshot-id for save action")
+			}
+			if err := snapshot.SaveSnapshot(filepath.Join(sandboxDir, args[0]), args[2]); err != nil {
+				log.Fatalf("Failed to save snapshot: %v", err)
+			}
+		case "restore":
+			if len(args) < 3 {
+				log.Fatalf("Missing snapshot-id for restore action")
+			}
+			if err := snapshot.RestoreSnapshot(filepath.Join(sandboxDir, args[0]), args[2]); err != nil {
+				log.Fatalf("Failed to restore snapshot: %v", err)
+			}
+		default:
+			log.Fatalf("Unknown action: %s", action)
 		}
 	},
 }
