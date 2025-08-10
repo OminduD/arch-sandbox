@@ -3,6 +3,7 @@ package cmd
 import (
 	"log"
 	"os"
+	"os/exec"
 
 	"path/filepath"
 
@@ -79,3 +80,19 @@ func Execute() {
 		os.Exit(1)
 	}
 }
+
+var installCmd = &cobra.Command{
+    Use:   "install <name> <package>",
+    Short: "Install a package in the sandbox",
+    Args:  cobra.ExactArgs(2),
+    Run: func(cmd *cobra.Command, args []string) {
+        sb, err := sandbox.NewSandbox(args[0], true)
+        if err != nil {
+            log.Fatalf("Failed to load sandbox: %v", err)
+		cmd := exec.Command("arch-chroot", sb.OverlayDir, "yay", "-S", "--noconfirm", args[1])
+        if err := cmd.Run(); err != nil {
+            log.Fatalf("Failed to install package: %v", err)
+        }
+    }
+
+}}

@@ -3,8 +3,8 @@ package sandbox
 import (
 	"log"
 	"os"
-	"path/filepath"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/OminduD/arch-sandbox/filesystem"
 	"github.com/OminduD/arch-sandbox/isolation"
@@ -104,7 +104,7 @@ func (s *Sandbox) Setup(cfg SandboxConfig) error {
 			return err
 		}
 	}
-    return nil
+	return nil
 
 }
 func (s *Sandbox) Launch() error {
@@ -121,4 +121,13 @@ func (s *Sandbox) Cleanup() error {
 		return err
 	}
 	return os.RemoveAll(s.BaseDir)
+}
+
+func (s *Sandbox) InstallAURHelper(helper string) error {
+	log.Printf("Installing AUR helper %s", helper)
+	cmd := exec.Command("arch-chroot", s.OverlayDir, "/bin/bash", "-c",
+		"pacman -S --noconfirm git base-devel && "+
+			"useradd -m aur && su aur -c 'git clone https://aur.archlinux.org/"+helper+".git /tmp/"+helper+" && "+
+			"cd /tmp/"+helper+" && makepkg -si --noconfirm'")
+	return cmd.Run()
 }
