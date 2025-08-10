@@ -4,10 +4,12 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"os/exec"
 
 	"github.com/OminduD/arch-sandbox/filesystem"
 	"github.com/OminduD/arch-sandbox/isolation"
 	"github.com/OminduD/arch-sandbox/utils"
+	yaml "gopkg.in/yaml.v3"
 )
 
 const (
@@ -24,6 +26,7 @@ type Sandbox struct {
 	UpperDir   string
 	WorkDir    string
 	OverlayDir string
+	TarballURL string
 }
 
 func NewSandbox(name string, persist bool) (*Sandbox, error) {
@@ -38,7 +41,37 @@ func NewSandbox(name string, persist bool) (*Sandbox, error) {
 		OverlayDir: filepath.Join(baseDir, "overlay"),
 	}, nil
 }
-func (s *Sandbox) Setup() error {
+
+type SandboxConfig struct {
+	Name     string   `yaml:"name"`
+	Persist  bool     `yaml:"persist"`
+	Tarball  string   `yaml:"tarball"`
+	Packages []string `yaml:"packages"`
+	Mounts   []struct {
+		Source string `yaml:"source"`
+		Target string `yaml:"target"`
+	} `yaml:"mounts"`
+	Network string `yaml:"network"`
+}
+
+func NewSandboxFromConfig(configPath string) (*Sandbox, error) {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, err
+	}
+	var cfg SandboxConfig
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, err
+	}
+	sb, err := NewSandbox(cfg.Name, cfg.Persist)
+	if err != nil {
+		return nil, err
+	}
+	sb.TarballURL = cfg.Tarball
+	// Apply mounts and packages in Setup()
+	return sb, nil
+}
+func (s *Sandbox) Setup(cfg SandboxConfig) error {
 	dirs := []string{s.BaseDir, s.RootDir, s.UpperDir, s.WorkDir, s.OverlayDir}
 	for _, dir := range dirs {
 		if err := os.MkdirAll(dir, 0755); err != nil {
@@ -58,7 +91,21 @@ func (s *Sandbox) Setup() error {
 	if err := filesystem.SetupOverlay(s.RootDir, s.UpperDir, s.WorkDir, s.OverlayDir); err != nil {
 		return err
 	}
-	return nil
+
+	for _, pkg := range cfg.Packages {
+		cmd := exec.Command("arch-chroot", s.OverlayDir, "pacman", "-S", "--noconfirm", pkg)
+		if err := cmd.Run(); err != nil {
+			return err
+		}
+	}
+	for _, mount := range cfg.Mounts {
+		cmd := exec.Command("mount", "--bind", mount.Source, filepath.Join(s.OverlayDir, mount.Target))
+		if err := cmd.Run(); err != nil {
+			return err
+		}
+	}
+    return nil
+
 }
 func (s *Sandbox) Launch() error {
 	log.Printf("Launching sandbox %s", s.Name)
