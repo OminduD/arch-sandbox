@@ -69,10 +69,31 @@ var snapshotCmd = &cobra.Command{
 		}
 	},
 }
+var installCmd = &cobra.Command{
+	Use:   "install <name> <package>",
+	Short: "Install a package in the sandbox",
+	Args:  cobra.ExactArgs(2),
+	Run: func(cmd *cobra.Command, args []string) {
+		sb, err := sandbox.NewSandbox(args[0], true)
+		if err != nil {
+			log.Fatalf("Failed to load sandbox: %v", err)
+			cmd := exec.Command("arch-chroot", sb.OverlayDir, "yay", "-S", "--noconfirm", args[1])
+			if err := cmd.Run(); err != nil {
+				log.Fatalf("Failed to install package: %v", err)
+			}
+		}
+
+	}}
 
 func init() {
 	newCmd.Flags().BoolP("persist", "p", false, "Persist sandbox after exit")
 	rootCmd.AddCommand(newCmd)
+	newCmd.Flags().StringP("network", "n", "host", "Network mode: host, private, none")
+	newCmd.Flags().StringSlice("dns", nil, "Custom DNS servers")
+	newCmd.Flags().StringSlice("port", nil, "Port mappings (e.g., host:container)")
+	newCmd.Flags().StringP("network", "n", "host", "Network mode: host, private, none")
+	newCmd.Flags().StringSlice("dns", nil, "Custom DNS servers")
+	newCmd.Flags().StringSlice("port", nil, "Port mappings (e.g., host:container)")
 }
 
 func Execute() {
@@ -80,19 +101,3 @@ func Execute() {
 		os.Exit(1)
 	}
 }
-
-var installCmd = &cobra.Command{
-    Use:   "install <name> <package>",
-    Short: "Install a package in the sandbox",
-    Args:  cobra.ExactArgs(2),
-    Run: func(cmd *cobra.Command, args []string) {
-        sb, err := sandbox.NewSandbox(args[0], true)
-        if err != nil {
-            log.Fatalf("Failed to load sandbox: %v", err)
-		cmd := exec.Command("arch-chroot", sb.OverlayDir, "yay", "-S", "--noconfirm", args[1])
-        if err := cmd.Run(); err != nil {
-            log.Fatalf("Failed to install package: %v", err)
-        }
-    }
-
-}}
