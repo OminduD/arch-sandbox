@@ -1,7 +1,6 @@
 package snapshot
 
 import (
-    "log"
     "os"
     "os/exec"
     "path/filepath"
