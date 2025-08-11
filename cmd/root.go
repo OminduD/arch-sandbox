@@ -1,5 +1,5 @@
 package cmd
-
+//Define CLI structure and cmd commands
 import (
 	"log"
 	"os"
@@ -20,7 +20,7 @@ var rootCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(snapshotCmd)
 }
-
+//Commands for new sandbox
 var newCmd = &cobra.Command{
 	Use:   "new <name>",
 	Short: "Create a new sandbox",
@@ -28,10 +28,12 @@ var newCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		persist, _ := cmd.Flags().GetBool("persist")
 		sb, err := sandbox.NewSandbox(args[0], persist)
-		if err != nil {
+		if err != nil {										//Error Handling
 			log.Fatalf("Failed to create sandbox: %v", err)
 		}
-		if err := sb.Setup(); err != nil {
+		// Create a default SandboxConfig or customize as needed
+		config := sandbox.SandboxConfig{}
+		if err := sb.Setup(config); err != nil {
 			log.Fatalf("Setup failed: %v", err)
 		}
 		if err := sb.Launch(); err != nil {
@@ -42,6 +44,7 @@ var newCmd = &cobra.Command{
 		}
 	},
 }
+//Command for snapshot management
 var snapshotCmd = &cobra.Command{
 	Use:   "snapshot <name> <action> [snapshot-id]",
 	Short: "Manage sandbox snapshots",
