@@ -13,9 +13,7 @@ import (
 )
 
 const (
-	sandboxDir  = "/home/omindud/.arch-sandbox"
-	tarballURL  = "https://archive.archlinux.org/iso/2025.07.01/archlinux-bootstrap-2025.07.01-x86_64.tar.zst" // changed to .tar.zst
-	tarballPath = sandboxDir + "/archlinux-bootstrap.tar.zst"                                                  // changed to .tar.zst
+	tarballURL = "https://archive.archlinux.org/iso/2025.07.01/archlinux-bootstrap-2025.07.01-x86_64.tar.zst"
 )
 
 type Sandbox struct {
@@ -39,6 +37,20 @@ func NewSandbox(name string, persist bool) (*Sandbox, error) {
 		UpperDir:   filepath.Join(baseDir, "upper"),
 		WorkDir:    filepath.Join(baseDir, "work"),
 		OverlayDir: filepath.Join(baseDir, "overlay"),
+	}, nil
+}
+
+func NewSandboxWithBaseDir(name string, persist bool, baseDir string) (*Sandbox, error) {
+	sandboxBase := filepath.Join(baseDir, name)
+	return &Sandbox{
+		Name:       name,
+		Persist:    persist,
+		BaseDir:    sandboxBase,
+		RootDir:    filepath.Join(sandboxBase, "root"),
+		UpperDir:   filepath.Join(sandboxBase, "upper"),
+		WorkDir:    filepath.Join(sandboxBase, "work"),
+		OverlayDir: filepath.Join(sandboxBase, "overlay"),
+		TarballURL: tarballURL,
 	}, nil
 }
 
@@ -105,7 +117,6 @@ func (s *Sandbox) Setup(cfg SandboxConfig) error {
 		}
 	}
 	return nil
-
 }
 func (s *Sandbox) Launch() error {
 	log.Printf("Launching sandbox %s", s.Name)
