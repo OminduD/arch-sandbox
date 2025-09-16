@@ -28,7 +28,12 @@ type Sandbox struct {
 }
 
 func NewSandbox(name string, persist bool) (*Sandbox, error) {
-	baseDir := filepath.Join(sandboxDir, name)
+	// Use a default base directory since sandboxDir is not defined
+	homeDir := os.Getenv("HOME")
+	if homeDir == "" {
+		homeDir = "/tmp"
+	}
+	baseDir := filepath.Join(homeDir, ".arch-sandbox", name)
 	return &Sandbox{
 		Name:       name,
 		Persist:    persist,
@@ -37,6 +42,7 @@ func NewSandbox(name string, persist bool) (*Sandbox, error) {
 		UpperDir:   filepath.Join(baseDir, "upper"),
 		WorkDir:    filepath.Join(baseDir, "work"),
 		OverlayDir: filepath.Join(baseDir, "overlay"),
+		TarballURL: tarballURL,
 	}, nil
 }
 
@@ -94,7 +100,10 @@ func (s *Sandbox) Setup(cfg SandboxConfig) error {
 	if err := utils.CheckDependencies(); err != nil {
 		return err
 	}
-	if err := utils.DownloadTarball(tarballURL, tarballPath); err != nil {
+
+	// Define tarball path in the sandbox's base directory
+	tarballPath := filepath.Join(s.BaseDir, "bootstrap.tar.zst")
+	if err := utils.DownloadTarball(s.TarballURL, tarballPath); err != nil {
 		return err
 	}
 	if err := utils.ExtractTarball(tarballPath, s.RootDir); err != nil {
@@ -120,7 +129,13 @@ func (s *Sandbox) Setup(cfg SandboxConfig) error {
 }
 func (s *Sandbox) Launch() error {
 	log.Printf("Launching sandbox %s", s.Name)
-	return isolation.LaunchNspawn(s.OverlayDir, s.Name)
+	// Use default values for the network configuration
+	networkMode := "host"
+	dns := []string{}
+	ports := []string{}
+	cpuShares := ""
+	memoryLimit := ""
+	return isolation.LaunchNspawn(s.OverlayDir, s.Name, networkMode, dns, ports, cpuShares, memoryLimit)
 }
 func (s *Sandbox) Cleanup() error {
 	if s.Persist {

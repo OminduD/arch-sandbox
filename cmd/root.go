@@ -32,15 +32,21 @@ func getDefaultBaseDir() string {
 func init() {
 	rootCmd.PersistentFlags().StringVar(&baseDir, "base-dir", getDefaultBaseDir(), "Base directory for sandboxes")
 	rootCmd.AddCommand(snapshotCmd)
+
+	// Add the new command
+	newCmd.Flags().BoolP("persist", "p", false, "Persist sandbox after exit")
+	newCmd.Flags().StringP("network", "n", "host", "Network mode: host, private, none")
+	newCmd.Flags().StringSlice("dns", nil, "Custom DNS servers")
+	newCmd.Flags().StringSlice("port", nil, "Port mappings (e.g., host:container)")
+	rootCmd.AddCommand(newCmd)
+
+	// Add the install command
+	rootCmd.AddCommand(installCmd)
 }
 
 var rootCmd = &cobra.Command{
 	Use:   "arch-sandbox",
 	Short: "Create isolated Arch Linux sandboxes",
-}
-
-func init() {
-	rootCmd.AddCommand(snapshotCmd)
 }
 
 // Commands for new sandbox
@@ -110,17 +116,6 @@ var installCmd = &cobra.Command{
 			log.Fatalf("Failed to install package: %v", err)
 		}
 	}}
-
-func init() {
-	newCmd.Flags().BoolP("persist", "p", false, "Persist sandbox after exit")
-	rootCmd.AddCommand(newCmd)
-	newCmd.Flags().StringP("network", "n", "host", "Network mode: host, private, none")
-	newCmd.Flags().StringSlice("dns", nil, "Custom DNS servers")
-	newCmd.Flags().StringSlice("port", nil, "Port mappings (e.g., host:container)")
-	newCmd.Flags().StringP("network", "n", "host", "Network mode: host, private, none")
-	newCmd.Flags().StringSlice("dns", nil, "Custom DNS servers")
-	newCmd.Flags().StringSlice("port", nil, "Port mappings (e.g., host:container)")
-}
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
