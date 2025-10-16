@@ -63,6 +63,8 @@ yay -S arch-sandbox
 paru -S arch-sandbox
 ```
 
+> **Note:** The AUR package may be in the process of being published. If it's not available yet, please use Method 2 (Manual Installation) below.
+
 This method automatically handles dependencies and keeps the tool up-to-date with your system.
 
 ### Method 2: Manual Installation from Source
@@ -140,26 +142,29 @@ sudo arch-sandbox new projectbox --persist --base-dir /data/sandboxes
 #### Install Packages
 Install packages directly in a persistent sandbox:
 ```bash
-arch-sandbox install <sandbox-name> <packages...>
+sudo arch-sandbox install <sandbox-name> <package>
 ```
 
 **Example:**
 ```bash
-# Install vim and git in a sandbox
-sudo arch-sandbox install devbox vim git
+# Install vim in a sandbox
+sudo arch-sandbox install devbox vim
+
+# Install git in a sandbox
+sudo arch-sandbox install devbox git
 ```
 
 #### Manage Snapshots
 Save and restore sandbox states:
 ```bash
 # Save a snapshot
-arch-sandbox snapshot save <sandbox-name> <snapshot-name>
+sudo arch-sandbox snapshot <sandbox-name> save <snapshot-id>
 
 # Restore a snapshot
-arch-sandbox snapshot restore <sandbox-name> <snapshot-name>
+sudo arch-sandbox snapshot <sandbox-name> restore <snapshot-id>
 
 # List snapshots
-arch-sandbox snapshot list <sandbox-name>
+sudo arch-sandbox snapshot <sandbox-name> list
 ```
 
 ### Sandbox Creation Process
