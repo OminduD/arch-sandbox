@@ -1,5 +1,6 @@
 package cmd
 
+//Import packages
 import (
 	"log"
 	"os"
@@ -17,6 +18,7 @@ var (
 )
 
 // rootCmd represents the base command when called without any subcommands
+// It serves as the entry point for the CLI application.
 var rootCmd = &cobra.Command{
 	Use:   "arch-sandbox",
 	Short: "Create and manage isolated Arch Linux sandboxes",
@@ -26,6 +28,7 @@ testers, and enthusiasts who need a clean, disposable environment.`,
 }
 
 // newCmd represents the new command
+// It allows users to create a new sandbox with various configuration options.
 var newCmd = &cobra.Command{
 	Use:   "new <name>",
 	Short: "Create a new sandbox",
