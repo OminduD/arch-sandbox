@@ -65,6 +65,7 @@ var newCmd = &cobra.Command{
 }
 
 // snapshotCmd represents the snapshot command
+
 var snapshotCmd = &cobra.Command{
 	Use:   "snapshot <name> <action> [snapshot-id]",
 	Short: "Manage sandbox snapshots (save, restore)",
@@ -100,6 +101,7 @@ var snapshotCmd = &cobra.Command{
 }
 
 // installCmd represents the install command
+// Install Package
 var installCmd = &cobra.Command{
 	Use:   "install <name> <package>",
 	Short: "Install a package in a persistent sandbox",
