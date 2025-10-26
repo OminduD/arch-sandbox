@@ -29,7 +29,7 @@ type Sandbox struct {
 	TarballURL string
 }
 
-// SandboxConfig defines sandbox configurations from a file.
+// SandboxConfig defines sandbox configurations from a file
 type SandboxConfig struct {
 	Name     string   `yaml:"name"`
 	Persist  bool     `yaml:"persist"`
